@@ -6,8 +6,8 @@ public class PlayerController2D : MonoBehaviour
 {
     private float horizontal;
     private float vertical;
-    private float speed = 8f;
-    private float jumpingPower = 12f;
+    [SerializeField] private float speed = 8f;
+    [SerializeField] private float jumpingPower = 12f;
     private bool isFacingRight = true;
 
     private bool isWallSliding;
@@ -21,7 +21,7 @@ public class PlayerController2D : MonoBehaviour
     private Vector2 wallJumpingPower = new Vector2(8f, 12f);
 
     private bool canDash = true;
-    private bool isDashing;
+    public bool isDashing;
     [SerializeField]private float dashingPowerHorizontal = 24f;
     [SerializeField]private float dashingPowerVertical = 12f;
     private float dashingTime = 0.2f;
@@ -34,10 +34,22 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private LayerMask groundLayer;
     [SerializeField] private Transform wallCheck;
     [SerializeField] private LayerMask wallLayer;
+    [SerializeField] private Transform environmentCheck;
+    [SerializeField] private LayerMask logLayer;
+    [SerializeField] private LayerMask spikesLayer;
 
 
     [SerializeField]private float fallMultiplier = 2f;
     [SerializeField]private float lowJumpMultiplier = 1.5f;
+
+
+    [SerializeField] private GameObject gameOver;
+    [SerializeField] private Transform startPostion;
+
+    private void Awake()
+    {
+        gameObject.transform.position = startPostion.position;
+    }
 
     private void Update()
     {
@@ -59,7 +71,7 @@ public class PlayerController2D : MonoBehaviour
         vertical = Input.GetAxisRaw("Vertical");
 
         ///Player Jump
-        if (Input.GetButtonDown("Jump") && IsGrounded())
+        if (Input.GetButtonDown("Jump") && (IsGrounded() || onLog()))
         {
             rb.velocity = new Vector2(rb.velocity.x, jumpingPower);
         }
@@ -110,10 +122,12 @@ public class PlayerController2D : MonoBehaviour
         }
         
         ///Player Run
-        if (!isWallJumping && !isDashing)
+        if (!isWallJumping && !isDashing && !onLog())
         {
             rb.velocity = new Vector2(horizontal * speed, rb.velocity.y);
         }
+
+        
 
         
     }
@@ -126,6 +140,16 @@ public class PlayerController2D : MonoBehaviour
     private bool IsWalled()
     {
         return Physics2D.OverlapCircle(wallCheck.position, 0.2f, wallLayer);
+    }
+
+    private bool onLog()
+    {
+        return Physics2D.OverlapCircle(groundCheck.position, 0.2f, logLayer);
+    }
+
+    private bool OnSpikes()
+    {
+        return Physics2D.OverlapCircle(environmentCheck.position, 0.6f, spikesLayer);
     }
 
     private void WallSlide()
@@ -217,8 +241,7 @@ public class PlayerController2D : MonoBehaviour
 
         yield return new WaitForSeconds(dashingTime);
         rb.gravityScale = originalGravity;
-        isDashing = false;
-        Invoke(nameof(StopAirDashing), 0.1f);
+        Invoke(nameof(StopAirDashing), 0f);
         yield return new WaitForSeconds(dashingCooldown);
         canDash = true;
     }
@@ -226,8 +249,34 @@ public class PlayerController2D : MonoBehaviour
 
     private void StopAirDashing()
     {
+        isDashing = false;
         rb.velocity *= 0.2f * Time.fixedDeltaTime;
     }
+
+    
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (OnSpikes())
+        {
+            gameObject.SetActive(false);
+
+            gameOver.SetActive(true);
+        }
+    }
+
+    public void ResartLevel()
+    {
+        gameObject.transform.position = startPostion.position;
+        gameObject.SetActive(true);
+        gameOver.SetActive(false);
+
+        isDashing = false;
+        isWallJumping = false;
+        isWallSliding = false;
+
+        rb.gravityScale = 1f;
+    }
+    
 
     private void OnDrawGizmos()
     {
@@ -235,5 +284,6 @@ public class PlayerController2D : MonoBehaviour
 
         Gizmos.DrawWireSphere(groundCheck.position, 0.2f);
         Gizmos.DrawWireSphere(wallCheck.position, 0.2f);
+        Gizmos.DrawWireSphere(environmentCheck.position, 0.5f);
     }
 }
