@@ -8,7 +8,7 @@ public class Mushroom : MonoBehaviour
     //[SerializeField]private Transform startPosition;
     private float mushroomLaunchTimer;
     [SerializeField]private float mushroomLaunchPower = 30f;
-    [SerializeField] private CircleCollider2D circleCollider;
+    [SerializeField] private CapsuleCollider2D circleCollider;
 
     [SerializeField] private PlayerController2D player;
     private Transform playerPosition;
@@ -50,9 +50,10 @@ public class Mushroom : MonoBehaviour
             else
             {
                 mushroomLaunchTimer = 0.2f;
+                playerRB.velocity = new Vector2(playerRB.velocity.x, playerRB.velocity.y * 0.4f);
             }
 
-            Invoke(nameof(StopLaunch), mushroomLaunchTimer);
+            //Invoke(nameof(StopLaunch), mushroomLaunchTimer);
             //StartCoroutine(MushroomLaunch());
         }
     }

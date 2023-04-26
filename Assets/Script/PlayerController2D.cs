@@ -1,13 +1,14 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Cinemachine;
 
 public class PlayerController2D : MonoBehaviour
 {
     private float horizontal;
     private float vertical;
     [SerializeField] private float speed = 8f;
-    [SerializeField] private float jumpingPower = 12f;
+    [SerializeField] private float jumpingPower = 10f;
     private bool isFacingRight = true;
 
     private bool isWallSliding;
@@ -22,9 +23,9 @@ public class PlayerController2D : MonoBehaviour
 
     private bool canDash = true;
     public bool isDashing;
-    [SerializeField]private float dashingPowerHorizontal = 24f;
-    [SerializeField]private float dashingPowerVertical = 12f;
-    private float dashingTime = 0.2f;
+    private float dashingPowerHorizontal = 24f;
+    private float dashingPowerVertical = 20f;
+    private float dashingTime = 0.15f;
     private float dashingCooldown = 1f;
     private float dashCounter;
 
@@ -39,12 +40,15 @@ public class PlayerController2D : MonoBehaviour
     [SerializeField] private LayerMask spikesLayer;
 
 
-    [SerializeField]private float fallMultiplier = 2f;
-    [SerializeField]private float lowJumpMultiplier = 1.5f;
+    private float fallMultiplier = 10f;
+    private float lowJumpMultiplier = 2f;
 
 
-    [SerializeField] private GameObject gameOver;
-    [SerializeField] private Transform startPostion;
+    //[SerializeField] private GameObject gameOver;
+    [SerializeField]private Transform startPostion;
+
+    [SerializeField] private GameObject deathAnim;
+    [SerializeField] private Animator deathAnimator;
 
     private void Awake()
     {
@@ -53,6 +57,7 @@ public class PlayerController2D : MonoBehaviour
 
     private void Update()
     {
+        Camera.main.TryGetComponent<CinemachineBrain>(out var brain);
         ///Makes sure the dash is not interupted by other inputs
         if (isDashing)
         {
@@ -60,15 +65,19 @@ public class PlayerController2D : MonoBehaviour
         }
 
         ///Resets Dash when Grounded or Walled
-        if(IsGrounded() || IsWalled())
+        if(IsGrounded() || IsWalled() || onLog())
         {
-            dashCounter = 0;
+            canDash = true;
         }
 
 
         ///WASD inputs
-        horizontal = Input.GetAxisRaw("Horizontal");
-        vertical = Input.GetAxisRaw("Vertical");
+        if (!brain.IsBlending)
+        {
+            horizontal = Input.GetAxisRaw("Horizontal");
+            vertical = Input.GetAxisRaw("Vertical");
+        }
+        
 
         ///Player Jump
         if (Input.GetButtonDown("Jump") && (IsGrounded() || onLog()))
@@ -86,7 +95,7 @@ public class PlayerController2D : MonoBehaviour
         {
             rb.velocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.deltaTime;
         }
-        else if (rb.velocity.y > 0 && !Input.GetKey(KeyCode.Space))
+        else if (rb.velocity.y > 0)
         {
             rb.velocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.deltaTime;
         }
@@ -96,9 +105,9 @@ public class PlayerController2D : MonoBehaviour
         
 
         ///Dash input
-        if (Input.GetKeyDown(KeyCode.RightShift) && dashCounter < 1)
+        if (Input.GetKeyDown(KeyCode.RightShift) && canDash)
         {
-            dashCounter = 1;
+            canDash = false;
             StartCoroutine(AirDash());
         }
 
@@ -127,9 +136,7 @@ public class PlayerController2D : MonoBehaviour
             rb.velocity = new Vector2(horizontal * speed, rb.velocity.y);
         }
 
-        
-
-        
+       
     }
 
     private bool IsGrounded()
@@ -258,9 +265,25 @@ public class PlayerController2D : MonoBehaviour
     {
         if (OnSpikes())
         {
+            deathAnim.SetActive(true);
+            deathAnim.transform.parent = null;
+            deathAnim.transform.position = gameObject.transform.position;
             gameObject.SetActive(false);
+            deathAnimator.Play("item-feedback-Animation");
 
-            gameOver.SetActive(true);
+            if (!deathAnimator.GetCurrentAnimatorStateInfo(0).IsName("item-feedback-Animation"))
+            {
+                Invoke(nameof(ResartLevel), 0.5f);
+            }
+            //gameOver.SetActive(true);
+        }
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.gameObject.CompareTag("Checkpoint"))
+        {
+            startPostion.position = collision.gameObject.transform.position;
         }
     }
 
@@ -268,7 +291,8 @@ public class PlayerController2D : MonoBehaviour
     {
         gameObject.transform.position = startPostion.position;
         gameObject.SetActive(true);
-        gameOver.SetActive(false);
+        deathAnim.SetActive(false);
+        //gameOver.SetActive(false);
 
         isDashing = false;
         isWallJumping = false;
